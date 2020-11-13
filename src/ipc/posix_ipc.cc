@@ -9,6 +9,8 @@
  * 
  */
 
+#if 0
+
 #include <exception>
 #include <stdexcept>
 #include <unistd.h>
@@ -551,3 +553,5 @@ void* PosixShareMem::addr(void) {
 }
 
 }
+
+#endif

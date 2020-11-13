@@ -8,6 +8,7 @@
  * @copyright Copyright (c) 2020 yuwangliang
  * 
  */
+#if 0
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -41,5 +42,10 @@ int main(void) {
 
 	mq.destroy();
 
+	return 0;
+}
+#endif
+
+int main(void) {
 	return 0;
 }
