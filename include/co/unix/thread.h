@@ -59,6 +59,11 @@ class RwMutex {
         assert(r == 0);
     }
 
+    void wlock() {
+        int r = pthread_rwlock_wrlock(&_mutex);
+        assert(r == 0);
+    }
+
     bool try_rlock() { return pthread_rwlock_tryrdlock(&_mutex) == 0; }
 
     bool try_wlock() { return pthread_rwlock_trywrlock(&_mutex) == 0; }
