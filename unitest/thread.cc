@@ -59,6 +59,15 @@ DEF_test(thread) {
         mtx.unlock();
     }
 
+    DEF_case(rwmutex) {
+        RwMutex mtx;
+
+        EXPECT_EQ(mtx.try_rlock(), true);
+        EXPECT_EQ(mtx.try_rlock(), true);
+        EXPECT_EQ(mtx.try_wlock(), false);
+        mtx.unlock();
+    }
+
     DEF_case(gettid) {
         EXPECT_NE(current_thread_id(), -1);
     }

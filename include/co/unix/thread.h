@@ -5,12 +5,14 @@
 #include "../atomic.h"
 #include "../closure.h"
 
-#include <pthread.h>
 #include <assert.h>
+#include <pthread.h>
+#include <sys/time.h>
 #include <memory>
 
+
 class Mutex {
-  public:
+   public:
     Mutex() {
         int r = pthread_mutex_init(&_mutex, 0);
         assert(r == 0);
@@ -31,45 +33,74 @@ class Mutex {
         assert(r == 0);
     }
 
-    bool try_lock() {
-        return pthread_mutex_trylock(&_mutex) == 0;
-    }
+    bool try_lock() { return pthread_mutex_trylock(&_mutex) == 0; }
 
-    pthread_mutex_t* mutex() {
-        return &_mutex;
-    }
+    pthread_mutex_t* mutex() { return &_mutex; }
 
-  private:
+   private:
     pthread_mutex_t _mutex;
     DISALLOW_COPY_AND_ASSIGN(Mutex);
 };
 
+class RwMutex {
+   public:
+    RwMutex() {
+        int r = pthread_rwlock_init(&_mutex, nullptr);
+        assert(r == 0);
+    }
+
+    ~RwMutex() {
+        int r = pthread_rwlock_destroy(&_mutex);
+        assert(r == 0);
+    }
+
+    void rlock() {
+        int r = pthread_rwlock_rdlock(&_mutex);
+        assert(r == 0);
+    }
+
+    bool try_rlock() { return pthread_rwlock_tryrdlock(&_mutex) == 0; }
+
+    bool try_wlock() { return pthread_rwlock_trywrlock(&_mutex) == 0; }
+
+    bool try_rlock_timeout(struct timespec& t) {
+        return pthread_rwlock_timedrdlock(&_mutex, &t) == 0;
+    }
+
+    bool try_wlock_timeout(struct timespec& t) {
+        return pthread_rwlock_timedwrlock(&_mutex, &t) == 0;
+    }
+
+    void unlock() {
+        int r = pthread_rwlock_unlock(&_mutex);
+        assert(r == 0);
+    }
+
+    pthread_rwlock_t* mutex() { return &_mutex; }
+
+   private:
+    pthread_rwlock_t _mutex;
+    DISALLOW_COPY_AND_ASSIGN(RwMutex);
+};
+
 class MutexGuard {
-  public:
-    explicit MutexGuard(Mutex& lock) : _lock(lock) {
-        _lock.lock();
-    }
+   public:
+    explicit MutexGuard(Mutex& lock) : _lock(lock) { _lock.lock(); }
 
-    explicit MutexGuard(Mutex* lock) : _lock(*lock) {
-        _lock.lock();
-    }
+    explicit MutexGuard(Mutex* lock) : _lock(*lock) { _lock.lock(); }
 
-    ~MutexGuard() {
-        _lock.unlock();
-    }
+    ~MutexGuard() { _lock.unlock(); }
 
-  private:
+   private:
     Mutex& _lock;
     DISALLOW_COPY_AND_ASSIGN(MutexGuard);
 };
 
 class SyncEvent {
-  public:
-    explicit SyncEvent(bool manual_reset=false, bool signaled=false);
+   public:
+    explicit SyncEvent(bool manual_reset = false, bool signaled = false);
 
-    ~SyncEvent() {
-        pthread_cond_destroy(&_cond);
-    }
+    ~SyncEvent() { pthread_cond_destroy(&_cond); }
 
     void signal() {
         MutexGuard g(_mutex);
@@ -89,7 +120,7 @@ class SyncEvent {
     // return false if timeout
     bool wait(unsigned int ms);
 
-  private:
+   private:
     pthread_cond_t _cond;
     Mutex _mutex;
 
@@ -110,7 +141,7 @@ class SyncEvent {
 // run independently from thread object:
 //   Thread(f).detach();                 // void f();
 class Thread {
-  public:
+   public:
     // @cb is not saved in this thread object, but passed directly to the
     // thread function, so it can run independently from the thread object.
     explicit Thread(Closure* cb) : _id(0) {
@@ -118,30 +149,19 @@ class Thread {
         assert(r == 0);
     }
 
-    explicit Thread(void (*f)())
-        : Thread(new_callback(f)) {
-    }
+    explicit Thread(void (*f)()) : Thread(new_callback(f)) {}
 
-    Thread(void (*f)(void*), void* p)
-        : Thread(new_callback(f, p)) {
-    }
+    Thread(void (*f)(void*), void* p) : Thread(new_callback(f, p)) {}
 
-    template<typename T>
-    Thread(void (T::*f)(), T* p)
-        : Thread(new_callback(f, p)) {
-    }
+    template <typename T>
+    Thread(void (T::*f)(), T* p) : Thread(new_callback(f, p)) {}
 
     explicit Thread(std::function<void()>&& f)
-        : Thread(new_callback(std::move(f))) {
-    }
+        : Thread(new_callback(std::move(f))) {}
 
-    explicit Thread(const std::function<void()>& f)
-        : Thread(new_callback(f)) {
-    }
+    explicit Thread(const std::function<void()>& f) : Thread(new_callback(f)) {}
 
-    ~Thread() {
-        this->join();
-    }
+    ~Thread() { this->join(); }
 
     // wait until the thread function terminates
     void join() {
@@ -154,20 +174,20 @@ class Thread {
         if (id != 0) pthread_detach(id);
     }
 
-  private:
+   private:
     pthread_t _id;
     DISALLOW_COPY_AND_ASSIGN(Thread);
 
     static void* _Run(void* p) {
-        Closure* cb = (Closure*) p;
+        Closure* cb = (Closure*)p;
         if (cb) cb->run();
         return 0;
     }
 };
 
 namespace xx {
-unsigned int gettid(); // get current thread id
-} // xx
+unsigned int gettid();  // get current thread id
+}  // namespace xx
 
 // using current_thread_id here as glibc 2.30 already has a gettid
 inline unsigned int current_thread_id() {
@@ -182,7 +202,7 @@ inline unsigned int current_thread_id() {
 //   if (!pt) pt.reset(new T);
 template <typename T>
 class thread_ptr {
-  public:
+   public:
     thread_ptr() {
         int r = pthread_key_create(&_key, 0);
         assert(r == 0);
@@ -197,9 +217,7 @@ class thread_ptr {
         }
     }
 
-    T* get() const {
-        return (T*) pthread_getspecific(_key);
-    }
+    T* get() const { return (T*)pthread_getspecific(_key); }
 
     void reset(T* p = 0) {
         T* obj = this->get();
@@ -214,9 +232,7 @@ class thread_ptr {
         }
     }
 
-    void operator=(T* p) {
-        this->reset(p);
-    }
+    void operator=(T* p) { this->reset(p); }
 
     T* release() {
         T* obj = this->get();
@@ -240,19 +256,13 @@ class thread_ptr {
         return *obj;
     }
 
-    bool operator==(T* p) const {
-        return this->get() == p;
-    }
+    bool operator==(T* p) const { return this->get() == p; }
 
-    bool operator!=(T* p) const {
-        return this->get() != p;
-    }
+    bool operator!=(T* p) const { return this->get() != p; }
 
-    bool operator!() const {
-        return this->get() == 0;
-    }
+    bool operator!() const { return this->get() == 0; }
 
-  private:
+   private:
     pthread_key_t _key;
 
     Mutex _mtx;
