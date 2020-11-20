@@ -10,27 +10,22 @@
 #include <sys/time.h>
 #include <memory>
 
-
 class Mutex {
    public:
     Mutex() {
-        int r = pthread_mutex_init(&_mutex, 0);
-        assert(r == 0);
+        assert(0 == pthread_mutex_init(&_mutex, 0));
     }
 
     ~Mutex() {
-        int r = pthread_mutex_destroy(&_mutex);
-        assert(r == 0);
+        assert(0 == pthread_mutex_destroy(&_mutex));
     }
 
     void lock() {
-        int r = pthread_mutex_lock(&_mutex);
-        assert(r == 0);
+        assert(0 == pthread_mutex_lock(&_mutex));
     }
 
     void unlock() {
-        int r = pthread_mutex_unlock(&_mutex);
-        assert(r == 0);
+        assert(0 == pthread_mutex_unlock(&_mutex));
     }
 
     bool try_lock() { return pthread_mutex_trylock(&_mutex) == 0; }
@@ -45,23 +40,19 @@ class Mutex {
 class RwMutex {
    public:
     RwMutex() {
-        int r = pthread_rwlock_init(&_mutex, nullptr);
-        assert(r == 0);
+        assert(0 == pthread_rwlock_init(&_mutex, nullptr));
     }
 
     ~RwMutex() {
-        int r = pthread_rwlock_destroy(&_mutex);
-        assert(r == 0);
+        assert(0 == pthread_rwlock_destroy(&_mutex));
     }
 
     void rlock() {
-        int r = pthread_rwlock_rdlock(&_mutex);
-        assert(r == 0);
+        assert(0 == pthread_rwlock_rdlock(&_mutex));
     }
 
     void wlock() {
-        int r = pthread_rwlock_wrlock(&_mutex);
-        assert(r == 0);
+        assert(0 == pthread_rwlock_wrlock(&_mutex));
     }
 
     bool try_rlock() { return pthread_rwlock_tryrdlock(&_mutex) == 0; }
@@ -77,8 +68,7 @@ class RwMutex {
     }
 
     void unlock() {
-        int r = pthread_rwlock_unlock(&_mutex);
-        assert(r == 0);
+        assert(0 == pthread_rwlock_unlock(&_mutex));
     }
 
     pthread_rwlock_t* mutex() { return &_mutex; }
@@ -94,11 +84,44 @@ class MutexGuard {
 
     explicit MutexGuard(Mutex* lock) : _lock(*lock) { _lock.lock(); }
 
+    void lock() { _lock.lock(); }
+    void unlock() { _lock.unlock(); }
+
     ~MutexGuard() { _lock.unlock(); }
 
    private:
     Mutex& _lock;
     DISALLOW_COPY_AND_ASSIGN(MutexGuard);
+};
+
+class RMutexGuard {
+   public:
+    explicit RMutexGuard(RwMutex& lock) : _lock(lock) { _lock.rlock(); }
+    explicit RMutexGuard(RwMutex* lock) : _lock(*lock) { _lock.rlock(); }
+
+    ~RMutexGuard() { _lock.unlock(); }
+
+    void lock() { _lock.rlock(); }
+    void unlock() { _lock.unlock(); }
+
+   private:
+    RwMutex& _lock;
+    DISALLOW_COPY_AND_ASSIGN(RMutexGuard);
+};
+
+class WMutexGuard {
+   public:
+    explicit WMutexGuard(RwMutex& lock) : _lock(lock) { _lock.wlock(); }
+    explicit WMutexGuard(RwMutex* lock) : _lock(*lock) { _lock.wlock(); }
+
+    ~WMutexGuard() { _lock.unlock(); }
+
+    void lock() { _lock.wlock(); }
+    void unlock() { _lock.unlock(); }
+
+   private:
+    RwMutex& _lock;
+    DISALLOW_COPY_AND_ASSIGN(WMutexGuard);
 };
 
 class SyncEvent {
@@ -150,8 +173,7 @@ class Thread {
     // @cb is not saved in this thread object, but passed directly to the
     // thread function, so it can run independently from the thread object.
     explicit Thread(Closure* cb) : _id(0) {
-        int r = pthread_create(&_id, 0, &Thread::_Run, cb);
-        assert(r == 0);
+        assert(0 == pthread_create(&_id, 0, &Thread::_Run, cb));
     }
 
     explicit Thread(void (*f)()) : Thread(new_callback(f)) {}
